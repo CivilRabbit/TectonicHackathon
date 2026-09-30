@@ -2,7 +2,7 @@ export type SourceSystem = 'PAYROLL' | 'HRIS' | 'CRM' | 'CONTRACTS' | 'BENEFITS'
 
 export type AttributeCategory = 'company' | 'payroll' | 'compliance' | 'contacts';
 
-/** Business domain a field belongs to; authority weights are defined per (source, domain). */
+/** Business domain a field belongs to; source rankings are defined per domain. */
 export type AuthorityDomain = 'company' | 'headcount' | 'compensation' | 'contract' | 'contact' | 'benefits';
 
 export type ValueFormat = 'text' | 'number' | 'currency' | 'date' | 'boolean' | 'email';
@@ -12,14 +12,35 @@ export type ConflictSeverity = 'critical' | 'warning';
 /** `null` in a document payload retracts that source's previous claim for the field. */
 export type FieldValue = string | number | boolean | null;
 
+/** Seed authority weight, only used to derive the default ordinal rankings. */
 export interface SystemWeight {
   source: SourceSystem;
   domain: AuthorityDomain;
   weight: number;
 }
 
+/** Ordered sources per domain; index 0 is rank #1 (highest authority). */
+export type SourceRankMap = Record<AuthorityDomain, SourceSystem[]>;
+
+/** Agent decision that a specific source wins a field, regardless of ranking. */
+export interface ManualOverride {
+  fieldKey: string;
+  source: SourceSystem;
+  documentId: string;
+  createdAt: string;
+}
+
+export type ManualOverrideMap = Record<string, ManualOverride>;
+
+export interface ResolutionContext {
+  rankings: SourceRankMap;
+  overrides: ManualOverrideMap;
+}
+
 export interface FieldDefinition {
   key: string;
+  /** Short uppercase code used in dense views such as the change feed. */
+  code: string;
   label: string;
   category: AttributeCategory;
   domain: AuthorityDomain;
@@ -90,23 +111,26 @@ export interface ClientAttribute {
 }
 
 export interface GoldenRecordEntry extends ClientAttribute {
+  code: string;
   domain: AuthorityDomain;
   format: ValueFormat;
   source: SourceSystem;
-  priority: number;
+  rank: number;
   documentId: string;
   createdAt: string;
   /** Age of the winning record, measured against the snapshot's as-of date. */
   freshnessDays: number;
-  contributingSources: SourceSystem[];
+  /** Claims in resolution order; the first one is the winner. */
+  claims: SourceClaim[];
   hasConflict: boolean;
+  isOverridden: boolean;
 }
 
 export interface SourceClaim {
   source: SourceSystem;
   value: FieldValue;
   timestamp: string;
-  priority: number;
+  rank: number;
   documentId: string;
   author: string;
   version: number;
@@ -114,8 +138,11 @@ export interface SourceClaim {
   sourceField: string;
 }
 
+export type ResolutionMethod = 'ranking' | 'override';
+
 export interface FieldConflict {
   fieldKey: string;
+  code: string;
   label: string;
   category: AttributeCategory;
   domain: AuthorityDomain;
@@ -124,6 +151,10 @@ export interface FieldConflict {
   conflictingValues: SourceClaim[];
   resolvedValue: FieldValue;
   resolvedSource: SourceSystem;
+  /** Source the ranking alone would pick. */
+  rankedSource: SourceSystem;
+  resolution: ResolutionMethod;
+  override: ManualOverride | null;
   severity: ConflictSeverity;
   driftPct: number | null;
   rationale: string;
@@ -133,6 +164,7 @@ export type DiffChangeType = 'added' | 'modified' | 'removed' | 'unchanged';
 
 export interface FieldChange {
   fieldKey: string;
+  code: string;
   label: string;
   category: AttributeCategory;
   format: ValueFormat;
@@ -145,6 +177,7 @@ export interface FieldChange {
 
 export interface ConflictDelta {
   fieldKey: string;
+  code: string;
   label: string;
   severity: ConflictSeverity;
 }
@@ -158,14 +191,17 @@ export interface SnapshotDiff {
   removed: FieldChange[];
   unchanged: FieldChange[];
   conflictsOpened: ConflictDelta[];
+  conflictsEscalated: ConflictDelta[];
   conflictsResolved: ConflictDelta[];
   ingestedDocuments: ClientDocument[];
 }
 
 export interface HealthBreakdown {
   score: number;
+  /** Unarbitrated conflicts only. */
   criticalCount: number;
   warningCount: number;
+  overriddenCount: number;
   staleFields: number;
   conflictPenalty: number;
   stalenessPenalty: number;
@@ -202,4 +238,11 @@ export interface ClientProfile {
   legalEntity: string;
   segment: string;
   workLocation: string;
+}
+
+/** Open state of the side-by-side document inspector. */
+export interface DocumentInspectionState {
+  fieldKey: string;
+  leftDocumentId: string;
+  rightDocumentId: string;
 }

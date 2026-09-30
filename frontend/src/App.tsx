@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChangeFeed } from './components/ChangeFeed';
 import { ConflictInspector } from './components/ConflictInspector';
-import { DiffPanel } from './components/DiffPanel';
+import { DocumentInspectorModal } from './components/DocumentInspectorModal';
 import { GoldenRecordPanel } from './components/GoldenRecordPanel';
 import { HeaderBar } from './components/HeaderBar';
-import { SourceViewerDialog } from './components/SourceViewerDialog';
 import { TimelineScrubber } from './components/TimelineScrubber';
+import { useResolutionState } from './hooks/useResolutionState';
 import { useTimelinePlayback } from './hooks/useTimelinePlayback';
 import { CLIENT_DOCUMENTS, CLIENT_PROFILE } from './mock/clientHistory';
-import type { ConflictSeverity, DiffChangeType } from './types';
-import { buildSnapshot, buildTimeline, computeSnapshotDiff } from './utils/engine';
+import type { ConflictSeverity, DocumentInspectionState, FieldConflict, SourceClaim } from './types';
+import { buildSnapshot, buildTimeline, computeSnapshotDiff, valuesEqual } from './utils/engine';
 
-const PANEL_HEIGHT = 'h-[620px] xl:h-[calc(100vh-22rem)] xl:min-h-[560px]';
+const PANEL_HEIGHT = 'h-[640px] xl:h-[calc(100vh-15.5rem)] xl:min-h-[520px]';
 
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -22,7 +23,9 @@ export default function App() {
   const lastIndex = points.length - 1;
   const [activeIndex, setActiveIndex] = useState(lastIndex);
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const [sourceId, setSourceId] = useState<string | null>(null);
+  const [inspection, setInspection] = useState<DocumentInspectionState | null>(null);
+  const resolution = useResolutionState();
+  const { context, setOverride, clearOverride } = resolution;
 
   const selectIndex = useCallback(
     (index: number) => setActiveIndex(Math.max(0, Math.min(lastIndex, index))),
@@ -45,24 +48,13 @@ export default function App() {
     },
     [stop, lastIndex],
   );
-  const toggleFocus = useCallback((key: string) => setFocusedField((current) => (current === key ? null : key)), []);
-  const openSource = useCallback(
-    (documentId: string) => {
-      const index = points.findIndex((point) => point.documents.some((doc) => doc.id === documentId));
-      if (index === -1) return;
-      stop();
-      selectIndex(index);
-      setSourceId(documentId);
-    },
-    [points, stop, selectIndex],
-  );
-  const closeSource = useCallback(() => setSourceId(null), []);
+  const focusField = useCallback((key: string) => setFocusedField(key), []);
 
   const activePoint = points[activeIndex];
-  const snapshot = useMemo(() => buildSnapshot(new Date(activePoint.asOf)), [activePoint]);
+  const snapshot = useMemo(() => buildSnapshot(new Date(activePoint.asOf), context), [activePoint, context]);
   const previousSnapshot = useMemo(
-    () => (activeIndex > 0 ? buildSnapshot(new Date(points[activeIndex - 1].asOf)) : null),
-    [activeIndex, points],
+    () => (activeIndex > 0 ? buildSnapshot(new Date(points[activeIndex - 1].asOf), context) : null),
+    [activeIndex, points, context],
   );
   const diff = useMemo(() => computeSnapshotDiff(snapshot, previousSnapshot), [snapshot, previousSnapshot]);
 
@@ -70,21 +62,27 @@ export default function App() {
     () => new Map<string, ConflictSeverity>(snapshot.conflicts.map((c) => [c.fieldKey, c.severity])),
     [snapshot],
   );
-  const changeTypeByKey = useMemo(
-    () => new Map<string, DiffChangeType>(diff.changes.filter((c) => c.type !== 'unchanged').map((c) => [c.fieldKey, c.type])),
-    [diff],
+  const inspectedConflict = inspection ? snapshot.conflicts.find((c) => c.fieldKey === inspection.fieldKey) : undefined;
+
+  useEffect(() => {
+    if (inspection && !inspectedConflict) setInspection(null);
+  }, [inspection, inspectedConflict]);
+
+  const openInspector = useCallback((conflict: FieldConflict) => {
+    const [winner, ...rest] = conflict.conflictingValues;
+    const challenger = rest.find((c) => !valuesEqual(c.value, winner.value)) ?? rest[0];
+    setInspection({ fieldKey: conflict.fieldKey, leftDocumentId: winner.documentId, rightDocumentId: challenger.documentId });
+  }, []);
+  const closeInspector = useCallback(() => setInspection(null), []);
+
+  const pickWinner = useCallback(
+    (conflict: FieldConflict, claim: SourceClaim) => setOverride(conflict.fieldKey, claim.source, claim.documentId),
+    [setOverride],
   );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isTypingTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
-      if (sourceId) {
-        if (event.key === 'Escape') {
-          event.preventDefault();
-          setSourceId(null);
-        }
-        return;
-      }
+      if (inspection || isTypingTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
       switch (event.key) {
         case 'ArrowLeft':
           event.preventDefault();
@@ -109,19 +107,21 @@ export default function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleStep, handleSelect, lastIndex, sourceId]);
+  }, [inspection, handleStep, handleSelect, lastIndex]);
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900">
+    <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <HeaderBar
         profile={CLIENT_PROFILE}
         snapshot={snapshot}
         totalDocuments={CLIENT_DOCUMENTS.length}
         isLatest={activeIndex === lastIndex}
+        customizationCount={resolution.customizationCount}
         onJumpToLatest={() => handleSelect(lastIndex)}
+        onResetDefaults={resolution.resetToDefaults}
       />
 
-      <main className="mx-auto max-w-[1600px] space-y-4 px-4 py-4">
+      <main className="mx-auto max-w-[1600px] space-y-3 px-4 py-3">
         <TimelineScrubber
           points={points}
           activeIndex={activeIndex}
@@ -129,46 +129,43 @@ export default function App() {
           onSelect={handleSelect}
           onStep={handleStep}
           onTogglePlay={playback.toggle}
-          onOpenSource={openSource}
-          onCloseSource={closeSource}
+          footer={<ChangeFeed diff={diff} focusedField={focusedField} onFocusField={focusField} />}
         />
 
-        <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-12">
+        <div className="grid gap-3 lg:grid-cols-2">
           <GoldenRecordPanel
-            className={`${PANEL_HEIGHT} xl:col-span-4`}
+            className={PANEL_HEIGHT}
             entries={snapshot.goldenRecord}
+            rankings={context.rankings}
             conflictSeverityByKey={conflictSeverityByKey}
-            changeTypeByKey={changeTypeByKey}
             focusedField={focusedField}
-            onFocusField={toggleFocus}
+            onFocusField={focusField}
+            onMoveRank={resolution.moveRank}
+            onClearOverride={clearOverride}
           />
           <ConflictInspector
-            className={`${PANEL_HEIGHT} xl:col-span-5`}
+            className={PANEL_HEIGHT}
             conflicts={snapshot.conflicts}
-            asOf={snapshot.asOf}
             focusedField={focusedField}
-            onFocusField={toggleFocus}
-          />
-          <DiffPanel
-            className={`${PANEL_HEIGHT} lg:col-span-2 xl:col-span-3`}
-            diff={diff}
-            focusedField={focusedField}
-            onFocusField={toggleFocus}
-            onOpenSource={openSource}
+            onFocusField={focusField}
+            onInspect={openInspector}
+            onPickWinner={pickWinner}
+            onClearOverride={clearOverride}
           />
         </div>
-
-        <footer className="pb-2 text-center text-[11px] text-slate-400">
-          Invented emails, company chats, and documents for a fictional client · reconciliation runs locally in the browser
-        </footer>
       </main>
 
-      {sourceId && (
-        <SourceViewerDialog
-          documents={points.find((point) => point.documents.some((doc) => doc.id === sourceId))?.documents ?? []}
-          documentId={sourceId}
-          onSelectDocument={setSourceId}
-          onClose={closeSource}
+      {inspection && inspectedConflict && (
+        <DocumentInspectorModal
+          inspection={inspection}
+          conflict={inspectedConflict}
+          onChangeDocument={(side, documentId) =>
+            setInspection((current) =>
+              current && { ...current, [side === 'left' ? 'leftDocumentId' : 'rightDocumentId']: documentId },
+            )
+          }
+          onAdopt={(claim) => setOverride(inspectedConflict.fieldKey, claim.source, claim.documentId)}
+          onClose={closeInspector}
         />
       )}
     </div>

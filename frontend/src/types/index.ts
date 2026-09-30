@@ -32,9 +32,31 @@ export interface ManualOverride {
 
 export type ManualOverrideMap = Record<string, ManualOverride>;
 
+export type ResolutionMethod = 'ranking' | 'override';
+
+/**
+ * Agent sign-off on one specific conflict. `conflictId` covers the exact set of competing
+ * documents, so new evidence for the field produces a new, unresolved conflict.
+ */
+export interface ResolvedConflict {
+  conflictId: string;
+  fieldKey: string;
+  winningSource: SourceSystem;
+  resolvedValue: FieldValue;
+  resolvedAt: string;
+  documentId: string;
+  /** How the winner was chosen at the moment of resolution. */
+  method: ResolutionMethod | 'document';
+  /** As-of instant of the snapshot the agent was viewing. */
+  snapshotAsOf: string;
+}
+
+export type ResolvedConflictMap = Record<string, ResolvedConflict>;
+
 export interface ResolutionContext {
   rankings: SourceRankMap;
   overrides: ManualOverrideMap;
+  resolutions: ResolvedConflictMap;
 }
 
 export interface FieldDefinition {
@@ -87,6 +109,7 @@ export interface GoldenRecordEntry extends ClientAttribute {
   claims: SourceClaim[];
   hasConflict: boolean;
   isOverridden: boolean;
+  isResolved: boolean;
 }
 
 export interface SourceClaim {
@@ -101,9 +124,12 @@ export interface SourceClaim {
   sourceField: string;
 }
 
-export type ResolutionMethod = 'ranking' | 'override';
+export type ConflictStatus = 'active' | 'resolved';
 
 export interface FieldConflict {
+  conflictId: string;
+  status: ConflictStatus;
+  resolvedRecord: ResolvedConflict | null;
   fieldKey: string;
   code: string;
   label: string;
@@ -116,7 +142,7 @@ export interface FieldConflict {
   resolvedSource: SourceSystem;
   /** Source the ranking alone would pick. */
   rankedSource: SourceSystem;
-  resolution: ResolutionMethod;
+  method: ResolutionMethod;
   override: ManualOverride | null;
   severity: ConflictSeverity;
   driftPct: number | null;
@@ -161,10 +187,10 @@ export interface SnapshotDiff {
 
 export interface HealthBreakdown {
   score: number;
-  /** Unarbitrated conflicts only. */
+  /** Active (unresolved) conflicts only. */
   criticalCount: number;
   warningCount: number;
-  overriddenCount: number;
+  resolvedCount: number;
   staleFields: number;
   conflictPenalty: number;
   stalenessPenalty: number;
@@ -208,4 +234,21 @@ export interface DocumentInspectionState {
   fieldKey: string;
   leftDocumentId: string;
   rightDocumentId: string;
+}
+
+/** Open state of the hierarchy manager; `baseline` is the ranking when it was opened. */
+export interface HierarchyManagerState {
+  domain: AuthorityDomain;
+  baseline: SourceRankMap;
+}
+
+export interface RankingImpact {
+  fieldKey: string;
+  code: string;
+  label: string;
+  format: ValueFormat;
+  previousValue: FieldValue;
+  previousSource: SourceSystem;
+  nextValue: FieldValue;
+  nextSource: SourceSystem;
 }

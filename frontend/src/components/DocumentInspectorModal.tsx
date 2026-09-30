@@ -1,12 +1,11 @@
-import { X } from 'lucide-react';
-import { useEffect, useId } from 'react';
 import { SOURCE_LABELS } from '../config/sources';
 import { SEVERITY_STYLES } from '../config/ui';
 import { cn } from '../lib/cn';
 import type { ClientDocument, DocumentInspectionState, FieldConflict, SourceClaim } from '../types';
-import { getDocumentById } from '../utils/engine';
+import { getDocumentById, valuesEqual } from '../utils/engine';
 import { formatDateTime, formatValue } from '../utils/format';
-import { OverrideBadge } from './ui/OverrideBadge';
+import { Modal } from './ui/Modal';
+import { OverrideBadge, ResolvedBadge } from './ui/OverrideBadge';
 import { SourceTag } from './ui/SourceTag';
 
 type Side = 'left' | 'right';
@@ -16,84 +15,76 @@ interface DocumentInspectorModalProps {
   conflict: FieldConflict;
   onChangeDocument: (side: Side, documentId: string) => void;
   onAdopt: (claim: SourceClaim) => void;
+  onResolve: (claim: SourceClaim) => void;
+  onReopen: () => void;
   onClose: () => void;
 }
 
-export function DocumentInspectorModal({ inspection, conflict, onChangeDocument, onAdopt, onClose }: DocumentInspectorModalProps) {
-  const titleId = useId();
+export function DocumentInspectorModal({
+  inspection,
+  conflict,
+  onChangeDocument,
+  onAdopt,
+  onResolve,
+  onReopen,
+  onClose,
+}: DocumentInspectorModalProps) {
   const claimsByDocument = new Map(conflict.conflictingValues.map((c) => [c.documentId, c]));
-  const left = claimsByDocument.get(inspection.leftDocumentId);
-  const right = claimsByDocument.get(inspection.rightDocumentId);
   const severity = SEVERITY_STYLES[conflict.severity];
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [onClose]);
+  const isResolved = conflict.status === 'resolved';
+  const panes: Array<[Side, SourceClaim | undefined, string]> = [
+    ['left', claimsByDocument.get(inspection.leftDocumentId), inspection.rightDocumentId],
+    ['right', claimsByDocument.get(inspection.rightDocumentId), inspection.leftDocumentId],
+  ];
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-6"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="flex max-h-full w-full max-w-6xl flex-col rounded-md border border-zinc-700 bg-zinc-900 shadow-2xl shadow-black"
-      >
-        <header className="flex h-11 shrink-0 items-center gap-3 border-b border-zinc-800 px-4">
-          <h2 id={titleId} className="text-[11px] font-semibold uppercase tracking-[0.08em] text-zinc-200">
-            Conflict Document Inspector
-          </h2>
+    <Modal
+      title="Conflict Document Inspector"
+      onClose={onClose}
+      className="max-w-6xl"
+      headerContent={
+        <>
           <span className="text-zinc-700">/</span>
           <span className={cn('font-mono text-[10px] font-semibold', severity.text)}>{severity.tag}</span>
-          <span className="text-[13px] text-zinc-100">{conflict.label}</span>
+          <span className="truncate text-[13px] text-zinc-100">{conflict.label}</span>
           <span className="font-mono text-[10px] text-zinc-500">{conflict.code}</span>
-          <button
-            type="button"
-            autoFocus
-            aria-label="Close inspector"
-            onClick={onClose}
-            className="ml-auto grid h-7 w-7 place-items-center rounded-sm text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </header>
+        </>
+      }
+      headerActions={
+        isResolved ? (
+          <span className="flex items-center gap-2">
+            <ResolvedBadge />
+            <button type="button" onClick={onReopen} className="font-mono text-[10px] uppercase text-zinc-400 hover:text-zinc-100">
+              Reopen
+            </button>
+          </span>
+        ) : null
+      }
+    >
+      {isResolved && (
+        <p className="shrink-0 border-b border-zinc-800 px-4 py-2 text-[11px] text-zinc-500">{conflict.rationale}</p>
+      )}
 
-        <div className="grid min-h-0 flex-1 grid-cols-2 divide-x divide-zinc-800">
-          {([
-            ['left', left, inspection.rightDocumentId],
-            ['right', right, inspection.leftDocumentId],
-          ] as const).map(([side, claim, otherId]) =>
-            claim ? (
-              <DocumentPane
-                key={side}
-                claim={claim}
-                conflict={conflict}
-                alternatives={conflict.conflictingValues.filter((c) => c.documentId !== otherId)}
-                onChangeDocument={(id) => onChangeDocument(side, id)}
-                onAdopt={() => onAdopt(claim)}
-              />
-            ) : (
-              <div key={side} className="p-6 font-mono text-xs text-zinc-500">
-                Document is not part of this conflict at the selected point in time.
-              </div>
-            ),
-          )}
-        </div>
+      <div className="grid min-h-0 flex-1 grid-cols-2 divide-x divide-zinc-800">
+        {panes.map(([side, claim, otherId]) =>
+          claim ? (
+            <DocumentPane
+              key={side}
+              claim={claim}
+              conflict={conflict}
+              alternatives={conflict.conflictingValues.filter((c) => c.documentId !== otherId)}
+              onChangeDocument={(id) => onChangeDocument(side, id)}
+              onAdopt={() => onAdopt(claim)}
+              onResolve={() => onResolve(claim)}
+            />
+          ) : (
+            <div key={side} className="p-6 font-mono text-xs text-zinc-500">
+              Document is not part of this conflict at the selected point in time.
+            </div>
+          ),
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -103,12 +94,14 @@ interface DocumentPaneProps {
   alternatives: SourceClaim[];
   onChangeDocument: (documentId: string) => void;
   onAdopt: () => void;
+  onResolve: () => void;
 }
 
-function DocumentPane({ claim, conflict, alternatives, onChangeDocument, onAdopt }: DocumentPaneProps) {
-  const document = getDocumentById(claim.documentId);
-  const isWinner = conflict.resolvedSource === claim.source;
-  const isPinned = isWinner && conflict.resolution === 'override';
+function DocumentPane({ claim, conflict, alternatives, onChangeDocument, onAdopt, onResolve }: DocumentPaneProps) {
+  const sourceDocument = getDocumentById(claim.documentId);
+  const isWinner = conflict.resolvedSource === claim.source && valuesEqual(conflict.resolvedValue, claim.value);
+  const isPinned = isWinner && conflict.method === 'override';
+  const isResolved = conflict.status === 'resolved';
 
   return (
     <div className="flex min-h-0 flex-col">
@@ -117,7 +110,8 @@ function DocumentPane({ claim, conflict, alternatives, onChangeDocument, onAdopt
         <dd className="flex items-center gap-2">
           <SourceTag source={claim.source} rank={claim.rank} />
           <span className="text-zinc-500">{SOURCE_LABELS[claim.source]}</span>
-          {isPinned && <OverrideBadge />}
+          {isPinned && !isResolved && <OverrideBadge />}
+          {isWinner && isResolved && <ResolvedBadge />}
         </dd>
 
         <dt className="text-[10px] uppercase tracking-[0.08em] text-zinc-500">Document</dt>
@@ -135,7 +129,7 @@ function DocumentPane({ claim, conflict, alternatives, onChangeDocument, onAdopt
               ))}
             </select>
           ) : (
-            <span className="text-zinc-200">{document?.title ?? claim.documentId}</span>
+            <span className="text-zinc-200">{sourceDocument?.title ?? claim.documentId}</span>
           )}
           <span className="ml-2 font-mono text-[10px] text-zinc-500">
             {claim.documentId} · v{claim.version}
@@ -155,22 +149,33 @@ function DocumentPane({ claim, conflict, alternatives, onChangeDocument, onAdopt
       </dl>
 
       <div className="scroll-thin min-h-0 flex-1 overflow-auto bg-zinc-950 py-2">
-        {document ? <PayloadPreview document={document} highlightKey={claim.sourceField} /> : null}
+        {sourceDocument && <PayloadPreview document={sourceDocument} highlightKey={claim.sourceField} />}
       </div>
 
-      <footer className="flex h-11 shrink-0 items-center justify-between border-t border-zinc-800 px-4">
-        <span className="font-mono text-[10px] text-zinc-500">
+      <footer className="flex h-11 shrink-0 items-center gap-2 border-t border-zinc-800 px-4">
+        <span className="mr-auto truncate font-mono text-[10px] text-zinc-500">
           field <span className="text-zinc-300">{claim.sourceField}</span>
           {claim.sourceField !== conflict.fieldKey && <> → {conflict.fieldKey}</>}
         </span>
-        <button
-          type="button"
-          onClick={onAdopt}
-          disabled={isPinned}
-          className="rounded-sm border border-zinc-600 bg-zinc-100 px-2.5 py-1 text-[11px] font-medium text-zinc-900 transition hover:bg-white disabled:cursor-default disabled:border-zinc-800 disabled:bg-transparent disabled:text-zinc-500"
-        >
-          {isPinned ? 'Adopted' : "Adopt this document's value"}
-        </button>
+        {!isResolved && (
+          <>
+            <button
+              type="button"
+              onClick={onAdopt}
+              disabled={isPinned}
+              className="rounded-sm border border-zinc-700 px-2.5 py-1 text-[11px] text-zinc-300 transition hover:border-zinc-400 hover:text-white disabled:cursor-default disabled:border-zinc-800 disabled:text-zinc-600"
+            >
+              {isPinned ? 'Adopted' : "Adopt this document's value"}
+            </button>
+            <button
+              type="button"
+              onClick={onResolve}
+              className="rounded-sm border border-zinc-300 bg-zinc-100 px-2.5 py-1 text-[11px] font-medium text-zinc-900 transition hover:bg-white"
+            >
+              Resolve from this document
+            </button>
+          </>
+        )}
       </footer>
     </div>
   );

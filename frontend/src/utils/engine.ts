@@ -12,7 +12,9 @@ import type {
   HealthBreakdown,
   ManualOverride,
   Milestone,
+  RankingImpact,
   ResolutionContext,
+  ResolvedConflict,
   SnapshotDiff,
   SourceClaim,
   SourceRankMap,
@@ -22,7 +24,7 @@ import type {
 } from '../types';
 import { CLIENT_DOCUMENTS, FIELD_ALIASES, FIELD_DEFINITIONS, MILESTONES, SYSTEM_WEIGHTS } from '../mock/clientHistory';
 import { AUTHORITY_DOMAINS, DOMAIN_LABELS, SOURCE_LABELS, SOURCE_ORDER } from '../config/sources';
-import { formatDate } from './format';
+import { formatDate, formatDateTime, formatValue } from './format';
 
 export const STALE_AFTER_DAYS = 180;
 const DAY_MS = 86_400_000;
@@ -99,7 +101,7 @@ export function buildDefaultRankings(weights: readonly SystemWeight[] = SYSTEM_W
 
 export const DEFAULT_RANKINGS: SourceRankMap = buildDefaultRankings();
 
-export const DEFAULT_RESOLUTION_CONTEXT: ResolutionContext = { rankings: DEFAULT_RANKINGS, overrides: {} };
+export const DEFAULT_RESOLUTION_CONTEXT: ResolutionContext = { rankings: DEFAULT_RANKINGS, overrides: {}, resolutions: {} };
 
 export function getSourceRank(rankings: SourceRankMap, domain: AuthorityDomain, source: SourceSystem): number {
   const index = rankings[domain].indexOf(source);
@@ -197,20 +199,52 @@ interface Resolution {
   ordered: SourceClaim[];
   rankedWinner: SourceClaim;
   override: ManualOverride | null;
+  conflictId: string | null;
+  resolved: ResolvedConflict | null;
 }
 
-/** An override only applies while its source still has a claim for the field. */
-function resolveClaims(rankedClaims: SourceClaim[], override: ManualOverride | undefined): Resolution {
+/** Stable identity of a conflict: the field plus the exact set of competing documents. */
+export function buildConflictId(fieldKey: string, claims: readonly SourceClaim[]): string {
+  return `${fieldKey}@${claims
+    .map((c) => c.documentId)
+    .sort()
+    .join('+')}`;
+}
+
+function promote(claims: SourceClaim[], source: SourceSystem): SourceClaim[] | null {
+  const pinned = claims.find((c) => c.source === source);
+  return pinned ? [pinned, ...claims.filter((c) => c !== pinned)] : null;
+}
+
+/**
+ * Precedence: an agent resolution of this exact conflict, then a manual override whose source
+ * still has a claim, then the ranking.
+ */
+function resolveClaims(fieldKey: string, rankedClaims: SourceClaim[], context: ResolutionContext): Resolution {
   const rankedWinner = rankedClaims[0];
-  const pinned = override ? rankedClaims.find((c) => c.source === override.source) : undefined;
-  if (!override || !pinned) return { ordered: rankedClaims, rankedWinner, override: null };
-  return { ordered: [pinned, ...rankedClaims.filter((c) => c !== pinned)], rankedWinner, override };
+  const override = context.overrides[fieldKey];
+  const overridden = override ? promote(rankedClaims, override.source) : null;
+  const base: Resolution = {
+    ordered: overridden ?? rankedClaims,
+    rankedWinner,
+    override: overridden ? override : null,
+    conflictId: null,
+    resolved: null,
+  };
+
+  if (distinctValueCount(rankedClaims) < 2) return base;
+  const conflictId = buildConflictId(fieldKey, rankedClaims);
+  const record = context.resolutions[conflictId];
+  const settled = record ? promote(base.ordered, record.winningSource) : null;
+  return settled && record
+    ? { ...base, ordered: settled, conflictId, resolved: record }
+    : { ...base, conflictId };
 }
 
 function resolveAll(documents: readonly ClientDocument[], context: ResolutionContext): Map<string, Resolution> {
   const resolved = new Map<string, Resolution>();
   for (const [key, claims] of collectFieldClaims(documents, context.rankings)) {
-    resolved.set(key, resolveClaims(claims, context.overrides[key]));
+    resolved.set(key, resolveClaims(key, claims, context));
   }
   return resolved;
 }
@@ -222,14 +256,14 @@ export function computeGoldenRecord(
 ): GoldenRecordEntry[] {
   const entries: GoldenRecordEntry[] = [];
 
-  for (const [key, { ordered, override }] of resolveAll(documents, context)) {
+  for (const [key, { ordered, override, resolved }] of resolveAll(documents, context)) {
     const definition = getFieldDefinition(key);
     const winner = ordered[0];
     entries.push({
       key,
       code: definition.code,
       label: definition.label,
-      value: winner.value,
+      value: resolved ? resolved.resolvedValue : winner.value,
       category: definition.category,
       domain: definition.domain,
       format: definition.format,
@@ -241,6 +275,7 @@ export function computeGoldenRecord(
       claims: ordered,
       hasConflict: distinctValueCount(ordered) > 1,
       isOverridden: override !== null,
+      isResolved: resolved !== null,
     });
   }
 
@@ -263,9 +298,16 @@ function classifySeverity(definition: FieldDefinition, driftPct: number | null):
   return definition.conflictSeverity ?? 'warning';
 }
 
+export function describeResolution(record: ResolvedConflict): string {
+  const { format } = getFieldDefinition(record.fieldKey);
+  return `Resolved by Agent · Selected: ${formatValue(record.resolvedValue, format)} from ${SOURCE_LABELS[record.winningSource]} · ${formatDateTime(record.resolvedAt)}`;
+}
+
 function explainResolution(resolution: Resolution, definition: FieldDefinition): string {
   const winner = resolution.ordered[0];
   const winnerName = SOURCE_LABELS[winner.source];
+
+  if (resolution.resolved) return describeResolution(resolution.resolved);
 
   if (resolution.override) {
     const ranked = resolution.rankedWinner;
@@ -292,13 +334,17 @@ export function detectConflicts(
   const conflicts: FieldConflict[] = [];
 
   for (const [key, resolution] of resolveAll(documents, context)) {
-    const { ordered, rankedWinner, override } = resolution;
-    if (distinctValueCount(ordered) < 2) continue;
+    const { ordered, rankedWinner, override, conflictId, resolved } = resolution;
+    if (!conflictId) continue;
     const definition = getFieldDefinition(key);
     const winner = ordered[0];
-    const driftPct = computeDriftPct(ordered, winner.value);
+    const resolvedValue = resolved ? resolved.resolvedValue : winner.value;
+    const driftPct = computeDriftPct(ordered, resolvedValue);
 
     conflicts.push({
+      conflictId,
+      status: resolved ? 'resolved' : 'active',
+      resolvedRecord: resolved,
       fieldKey: key,
       code: definition.code,
       label: definition.label,
@@ -306,10 +352,10 @@ export function detectConflicts(
       domain: definition.domain,
       format: definition.format,
       conflictingValues: ordered,
-      resolvedValue: winner.value,
+      resolvedValue,
       resolvedSource: winner.source,
       rankedSource: rankedWinner.source,
-      resolution: override ? 'override' : 'ranking',
+      method: override ? 'override' : 'ranking',
       override,
       severity: classifySeverity(definition, driftPct),
       driftPct,
@@ -322,12 +368,12 @@ export function detectConflicts(
   );
 }
 
-/** Conflicts an agent has arbitrated do not count against health. */
+/** Conflicts an agent has resolved do not count against health. */
 export function computeHealthScore(
   goldenRecord: readonly GoldenRecordEntry[],
   conflicts: readonly FieldConflict[],
 ): HealthBreakdown {
-  const open = conflicts.filter((c) => c.resolution === 'ranking');
+  const open = conflicts.filter((c) => c.status === 'active');
   const criticalCount = open.filter((c) => c.severity === 'critical').length;
   const warningCount = open.length - criticalCount;
   const staleFields = goldenRecord.filter((e) => e.freshnessDays > STALE_AFTER_DAYS).length;
@@ -339,7 +385,7 @@ export function computeHealthScore(
     score,
     criticalCount,
     warningCount,
-    overriddenCount: conflicts.length - open.length,
+    resolvedCount: conflicts.length - open.length,
     staleFields,
     conflictPenalty,
     stalenessPenalty,
@@ -361,6 +407,39 @@ export function buildSnapshot(
     conflicts,
     health: computeHealthScore(goldenRecord, conflicts),
   };
+}
+
+/** Golden Record fields whose winning value or source differs between two resolutions. */
+export function computeRankingImpact(
+  before: readonly GoldenRecordEntry[],
+  after: readonly GoldenRecordEntry[],
+): RankingImpact[] {
+  const previous = new Map(before.map((e) => [e.key, e]));
+  return after.flatMap((next) => {
+    const prev = previous.get(next.key);
+    if (!prev || (prev.source === next.source && valuesEqual(prev.value, next.value))) return [];
+    return [
+      {
+        fieldKey: next.key,
+        code: next.code,
+        label: next.label,
+        format: next.format,
+        previousValue: prev.value,
+        previousSource: prev.source,
+        nextValue: next.value,
+        nextSource: next.source,
+      },
+    ];
+  });
+}
+
+export function lastSyncedBySource(documents: readonly ClientDocument[]): Map<SourceSystem, string> {
+  const latest = new Map<SourceSystem, string>();
+  for (const doc of documents) {
+    const current = latest.get(doc.source);
+    if (!current || Date.parse(doc.createdAt) > Date.parse(current)) latest.set(doc.source, doc.createdAt);
+  }
+  return latest;
 }
 
 function toConflictDelta(conflict: FieldConflict): ConflictDelta {

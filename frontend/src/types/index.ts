@@ -41,8 +41,45 @@ export interface DocumentMetadata {
   title: string;
 }
 
+/** How a timeline point arrived: mail, a company chat, or a text document. */
+export type SourceKind = 'email' | 'chat' | 'document';
+
+export interface EmailSource {
+  kind: 'email';
+  fromName: string;
+  fromAddress: string;
+  toName: string;
+  toAddress: string;
+  subject: string;
+  body: string;
+}
+
+export interface ChatLine {
+  author: string;
+  at: string;
+  body: string;
+}
+
+export interface ChatSource {
+  kind: 'chat';
+  channel: string;
+  thread: string;
+  messages: ChatLine[];
+}
+
+export interface TextDocumentSource {
+  kind: 'document';
+  title: string;
+  documentType: string;
+  reference: string;
+  body: string;
+}
+
+export type IngestedSource = EmailSource | ChatSource | TextDocumentSource;
+
 export interface ClientDocument extends DocumentMetadata {
   payload: Record<string, FieldValue>;
+  origin: IngestedSource;
 }
 
 export interface ClientAttribute {

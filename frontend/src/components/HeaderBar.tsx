@@ -66,7 +66,7 @@ export function HeaderBar({ profile, snapshot, totalDocuments, isLatest, onJumpT
         </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Stat icon={FileStack} label="Total docs" value={snapshot.documents.length} hint={`of ${totalDocuments} ingested`} />
+          <Stat icon={FileStack} label="Sources" value={snapshot.documents.length} hint={`of ${totalDocuments} ingested`} />
           <Stat
             icon={AlertTriangle}
             label="Active conflicts"

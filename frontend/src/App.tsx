@@ -3,6 +3,7 @@ import { ConflictInspector } from './components/ConflictInspector';
 import { DiffPanel } from './components/DiffPanel';
 import { GoldenRecordPanel } from './components/GoldenRecordPanel';
 import { HeaderBar } from './components/HeaderBar';
+import { SourceViewerDialog } from './components/SourceViewerDialog';
 import { TimelineScrubber } from './components/TimelineScrubber';
 import { useTimelinePlayback } from './hooks/useTimelinePlayback';
 import { CLIENT_DOCUMENTS, CLIENT_PROFILE } from './mock/clientHistory';
@@ -21,6 +22,7 @@ export default function App() {
   const lastIndex = points.length - 1;
   const [activeIndex, setActiveIndex] = useState(lastIndex);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [sourceId, setSourceId] = useState<string | null>(null);
 
   const selectIndex = useCallback(
     (index: number) => setActiveIndex(Math.max(0, Math.min(lastIndex, index))),
@@ -44,6 +46,17 @@ export default function App() {
     [stop, lastIndex],
   );
   const toggleFocus = useCallback((key: string) => setFocusedField((current) => (current === key ? null : key)), []);
+  const openSource = useCallback(
+    (documentId: string) => {
+      const index = points.findIndex((point) => point.documents.some((doc) => doc.id === documentId));
+      if (index === -1) return;
+      stop();
+      selectIndex(index);
+      setSourceId(documentId);
+    },
+    [points, stop, selectIndex],
+  );
+  const closeSource = useCallback(() => setSourceId(null), []);
 
   const activePoint = points[activeIndex];
   const snapshot = useMemo(() => buildSnapshot(new Date(activePoint.asOf)), [activePoint]);
@@ -65,6 +78,13 @@ export default function App() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (sourceId) {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          setSourceId(null);
+        }
+        return;
+      }
       switch (event.key) {
         case 'ArrowLeft':
           event.preventDefault();
@@ -89,7 +109,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleStep, handleSelect, lastIndex]);
+  }, [handleStep, handleSelect, lastIndex, sourceId]);
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900">
@@ -109,6 +129,8 @@ export default function App() {
           onSelect={handleSelect}
           onStep={handleStep}
           onTogglePlay={playback.toggle}
+          onOpenSource={openSource}
+          onCloseSource={closeSource}
         />
 
         <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-12">
@@ -132,13 +154,23 @@ export default function App() {
             diff={diff}
             focusedField={focusedField}
             onFocusField={toggleFocus}
+            onOpenSource={openSource}
           />
         </div>
 
         <footer className="pb-2 text-center text-[11px] text-slate-400">
-          Deterministic mock data for a fictional client · all reconciliation runs locally in the browser
+          Invented emails, company chats, and documents for a fictional client · reconciliation runs locally in the browser
         </footer>
       </main>
+
+      {sourceId && (
+        <SourceViewerDialog
+          documents={points.find((point) => point.documents.some((doc) => doc.id === sourceId))?.documents ?? []}
+          documentId={sourceId}
+          onSelectDocument={setSourceId}
+          onClose={closeSource}
+        />
+      )}
     </div>
   );
 }

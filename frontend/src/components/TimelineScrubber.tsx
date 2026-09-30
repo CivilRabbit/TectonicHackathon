@@ -1,10 +1,12 @@
 import { ChevronLeft, ChevronRight, Flag, History, Pause, Play, SkipForward } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { ORIGIN_ICONS, ORIGIN_LABELS } from '../config/origins';
 import { SOURCE_LABELS, SOURCE_ORDER } from '../config/sources';
 import { SOURCE_STYLES } from '../config/ui';
 import { cn } from '../lib/cn';
 import type { TimelinePoint } from '../types';
 import { formatDate, formatShortDate } from '../utils/format';
+import { OriginKindBadge } from './ui/OriginKindBadge';
 import { SourceBadge } from './ui/SourceBadge';
 
 interface TimelineScrubberProps {
@@ -14,11 +16,22 @@ interface TimelineScrubberProps {
   onSelect: (index: number) => void;
   onStep: (delta: number) => void;
   onTogglePlay: () => void;
+  onOpenSource: (documentId: string) => void;
+  onCloseSource: () => void;
 }
 
 const TRACK_CENTER_PX = 30;
 
-export function TimelineScrubber({ points, activeIndex, isPlaying, onSelect, onStep, onTogglePlay }: TimelineScrubberProps) {
+export function TimelineScrubber({
+  points,
+  activeIndex,
+  isPlaying,
+  onSelect,
+  onStep,
+  onTogglePlay,
+  onOpenSource,
+  onCloseSource,
+}: TimelineScrubberProps) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const lastIndex = points.length - 1;
   const position = (index: number) => (lastIndex === 0 ? 50 : (index / lastIndex) * 100);
@@ -33,7 +46,7 @@ export function TimelineScrubber({ points, activeIndex, isPlaying, onSelect, onS
           <History className="h-4 w-4 text-indigo-600" />
           <h2 className="text-sm font-semibold text-slate-900">Data timeline</h2>
           <span className="text-xs text-slate-500">
-            {points.length} points · {formatDate(points[0].asOf)} – {formatDate(points[lastIndex].asOf)}
+            {points.length} points · {formatDate(points[0].asOf)} – {formatDate(points[lastIndex].asOf)} · click a point to open its source
           </span>
         </div>
 
@@ -101,12 +114,21 @@ export function TimelineScrubber({ points, activeIndex, isPlaying, onSelect, onS
                   )}
                   <button
                     type="button"
-                    onClick={() => onSelect(index)}
+                    onClick={() => {
+                      onSelect(index);
+                      const source = point.documents[0];
+                      if (source) onOpenSource(source.id);
+                      else onCloseSource();
+                    }}
                     onMouseEnter={() => setHoverIndex(index)}
                     onFocus={() => setHoverIndex(index)}
                     onBlur={() => setHoverIndex(null)}
                     aria-current={isActive ? 'step' : undefined}
-                    aria-label={`${formatDate(point.asOf)}${isMilestone ? ` (${point.milestone})` : ''}: ${point.documents.length} documents`}
+                    aria-label={
+                      point.documents.length === 0
+                        ? `${formatDate(point.asOf)}${isMilestone ? ` (${point.milestone})` : ''}: checkpoint, no source`
+                        : `${formatDate(point.asOf)}${isMilestone ? ` (${point.milestone})` : ''}: open ${ORIGIN_LABELS[point.documents[0].origin.kind].toLowerCase()}, ${point.documents[0].title}`
+                    }
                     className="group absolute left-1/2 grid h-7 w-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                     style={{ top: TRACK_CENTER_PX }}
                   >
@@ -169,21 +191,29 @@ export function TimelineScrubber({ points, activeIndex, isPlaying, onSelect, onS
         )}
         <span className="text-xs text-slate-500">
           {inspected.documents.length === 0
-            ? 'Checkpoint only, no documents ingested on this day'
-            : `${inspected.documents.length} document${inspected.documents.length === 1 ? '' : 's'} ingested`}
+            ? 'Checkpoint only, nothing ingested on this day'
+            : `${inspected.documents.length} source${inspected.documents.length === 1 ? '' : 's'} ingested`}
         </span>
-        {inspected.documents.map((doc) => (
-          <span
+        {inspected.documents.map((doc) => {
+          const Icon = ORIGIN_ICONS[doc.origin.kind];
+          return (
+          <button
             key={doc.id}
-            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs shadow-sm"
+            type="button"
+            onClick={() => onOpenSource(doc.id)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs shadow-sm transition hover:border-indigo-300 hover:bg-indigo-50"
+            aria-label={`Open ${ORIGIN_LABELS[doc.origin.kind].toLowerCase()}: ${doc.title}`}
           >
+            <Icon className="h-3 w-3 text-indigo-500" />
+            <OriginKindBadge kind={doc.origin.kind} />
             <SourceBadge source={doc.source} />
             <span className="font-medium text-slate-800">{doc.title}</span>
             <span className="text-slate-400">
               v{doc.version} · {doc.author}
             </span>
-          </span>
-        ))}
+          </button>
+          );
+        })}
         <span className="ml-auto hidden text-[10px] text-slate-400 lg:inline">← → to step · Home / End to jump</span>
       </div>
     </section>

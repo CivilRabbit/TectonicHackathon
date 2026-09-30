@@ -1,9 +1,11 @@
-import { ChevronDown, FileDiff, FilePlus2, Sparkles } from 'lucide-react';
+import { ChevronDown, FileDiff, Sparkles } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { ORIGIN_ICONS, ORIGIN_LABELS } from '../config/origins';
 import { CHANGE_STYLES } from '../config/ui';
 import { cn } from '../lib/cn';
 import type { DiffChangeType, FieldChange, SnapshotDiff } from '../types';
 import { formatDate, formatSignedDelta, formatValue } from '../utils/format';
+import { OriginKindBadge } from './ui/OriginKindBadge';
 import { EmptyState, Panel } from './ui/Panel';
 import { SourceBadge } from './ui/SourceBadge';
 
@@ -11,12 +13,13 @@ interface DiffPanelProps {
   diff: SnapshotDiff;
   focusedField: string | null;
   onFocusField: (key: string) => void;
+  onOpenSource: (documentId: string) => void;
   className?: string;
 }
 
 const SUMMARY_ORDER: DiffChangeType[] = ['added', 'modified', 'removed', 'unchanged'];
 
-export function DiffPanel({ diff, focusedField, onFocusField, className }: DiffPanelProps) {
+export function DiffPanel({ diff, focusedField, onFocusField, onOpenSource, className }: DiffPanelProps) {
   const [showUnchanged, setShowUnchanged] = useState(false);
   const changed = [...diff.added, ...diff.modified, ...diff.removed];
   const counts: Record<DiffChangeType, number> = {
@@ -54,25 +57,36 @@ export function DiffPanel({ diff, focusedField, onFocusField, className }: DiffP
         </div>
       )}
 
-      <Section title="Documents ingested" count={diff.ingestedDocuments.length}>
+      <Section title="Sources ingested" count={diff.ingestedDocuments.length}>
         {diff.ingestedDocuments.length === 0 ? (
-          <p className="px-3 pb-2 text-xs text-slate-400">No new documents in this interval.</p>
+          <p className="px-3 pb-2 text-xs text-slate-400">No new sources in this interval.</p>
         ) : (
           <ul className="space-y-1 px-3 pb-2">
-            {diff.ingestedDocuments.map((doc) => (
-              <li key={doc.id} className="flex items-start gap-2 text-xs">
-                <FilePlus2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <SourceBadge source={doc.source} />
-                    <span className="font-mono text-[10px] text-slate-400">
-                      {doc.id} · v{doc.version}
+            {diff.ingestedDocuments.map((doc) => {
+              const Icon = ORIGIN_ICONS[doc.origin.kind];
+              return (
+              <li key={doc.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpenSource(doc.id)}
+                  className="flex w-full items-start gap-2 rounded-md px-1 py-1 text-left text-xs transition hover:bg-indigo-50"
+                  aria-label={`Open ${ORIGIN_LABELS[doc.origin.kind].toLowerCase()}: ${doc.title}`}
+                >
+                  <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                  <span className="min-w-0">
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <OriginKindBadge kind={doc.origin.kind} />
+                      <SourceBadge source={doc.source} />
+                      <span className="font-mono text-[10px] text-slate-400">
+                        {doc.id} · v{doc.version}
+                      </span>
                     </span>
-                  </div>
-                  <div className="mt-0.5 text-slate-700">{doc.title}</div>
-                </div>
+                    <span className="mt-0.5 block text-slate-700">{doc.title}</span>
+                  </span>
+                </button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </Section>

@@ -1,11 +1,64 @@
 import { AUTHORITY_DOMAINS, SOURCE_ORDER } from '../config/sources';
-import type { ManualOverride, ManualOverrideMap, SourceRankMap, SourceSystem } from '../types';
+import type {
+  FieldValue,
+  ManualOverride,
+  ManualOverrideMap,
+  ResolvedConflict,
+  ResolvedConflictMap,
+  SourceRankMap,
+  SourceSystem,
+} from '../types';
 import { DEFAULT_RANKINGS } from './engine';
 
 export const STORAGE_KEYS = {
   overrides: 'customer360_overrides',
   rankings: 'customer360_rankings',
+  resolvedConflicts: 'customer360_resolved_conflicts',
 } as const;
+
+const RESOLUTION_METHODS: ReadonlyArray<ResolvedConflict['method']> = ['ranking', 'override', 'document'];
+
+function isFieldValue(value: unknown): value is FieldValue {
+  return value === null || ['string', 'number', 'boolean'].includes(typeof value);
+}
+
+function isIsoDate(value: unknown): value is string {
+  return typeof value === 'string' && !Number.isNaN(Date.parse(value));
+}
+
+/** Stored as an array; returned keyed by `conflictId`. Invalid entries are dropped. */
+export function parseResolvedConflicts(raw: unknown): ResolvedConflictMap {
+  if (!Array.isArray(raw)) return {};
+  const resolutions: ResolvedConflictMap = {};
+
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const c = item as Partial<ResolvedConflict>;
+    if (
+      typeof c.conflictId === 'string' &&
+      typeof c.fieldKey === 'string' &&
+      typeof c.documentId === 'string' &&
+      isSourceSystem(c.winningSource) &&
+      isFieldValue(c.resolvedValue) &&
+      isIsoDate(c.resolvedAt) &&
+      isIsoDate(c.snapshotAsOf) &&
+      c.method !== undefined &&
+      RESOLUTION_METHODS.includes(c.method)
+    ) {
+      resolutions[c.conflictId] = {
+        conflictId: c.conflictId,
+        fieldKey: c.fieldKey,
+        winningSource: c.winningSource,
+        resolvedValue: c.resolvedValue,
+        resolvedAt: c.resolvedAt,
+        documentId: c.documentId,
+        method: c.method,
+        snapshotAsOf: c.snapshotAsOf,
+      };
+    }
+  }
+  return resolutions;
+}
 
 function isSourceSystem(value: unknown): value is SourceSystem {
   return typeof value === 'string' && (SOURCE_ORDER as string[]).includes(value);

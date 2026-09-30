@@ -4,12 +4,27 @@ import { ConflictInspector } from './components/ConflictInspector';
 import { DocumentInspectorModal } from './components/DocumentInspectorModal';
 import { GoldenRecordPanel } from './components/GoldenRecordPanel';
 import { HeaderBar } from './components/HeaderBar';
+import { HierarchyManagerModal } from './components/HierarchyManagerModal';
 import { TimelineScrubber } from './components/TimelineScrubber';
 import { useResolutionState } from './hooks/useResolutionState';
 import { useTimelinePlayback } from './hooks/useTimelinePlayback';
 import { CLIENT_DOCUMENTS, CLIENT_PROFILE } from './mock/clientHistory';
-import type { ConflictSeverity, DocumentInspectionState, FieldConflict, SourceClaim } from './types';
-import { buildSnapshot, buildTimeline, computeSnapshotDiff, valuesEqual } from './utils/engine';
+import type {
+  AuthorityDomain,
+  ConflictSeverity,
+  DocumentInspectionState,
+  FieldConflict,
+  HierarchyManagerState,
+  SourceClaim,
+} from './types';
+import {
+  buildSnapshot,
+  buildTimeline,
+  computeRankingImpact,
+  computeSnapshotDiff,
+  lastSyncedBySource,
+  valuesEqual,
+} from './utils/engine';
 
 const PANEL_HEIGHT = 'h-[640px] xl:h-[calc(100vh-15.5rem)] xl:min-h-[520px]';
 
@@ -24,8 +39,9 @@ export default function App() {
   const [activeIndex, setActiveIndex] = useState(lastIndex);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [inspection, setInspection] = useState<DocumentInspectionState | null>(null);
+  const [hierarchy, setHierarchy] = useState<HierarchyManagerState | null>(null);
   const resolution = useResolutionState();
-  const { context, setOverride, clearOverride } = resolution;
+  const { context, setOverride, clearOverride, resolveConflict, reopenConflict, replaceRankings } = resolution;
 
   const selectIndex = useCallback(
     (index: number) => setActiveIndex(Math.max(0, Math.min(lastIndex, index))),
@@ -58,10 +74,20 @@ export default function App() {
   );
   const diff = useMemo(() => computeSnapshotDiff(snapshot, previousSnapshot), [snapshot, previousSnapshot]);
 
-  const conflictSeverityByKey = useMemo(
-    () => new Map<string, ConflictSeverity>(snapshot.conflicts.map((c) => [c.fieldKey, c.severity])),
+  const activeSeverityByKey = useMemo(
+    () =>
+      new Map<string, ConflictSeverity>(
+        snapshot.conflicts.filter((c) => c.status === 'active').map((c) => [c.fieldKey, c.severity]),
+      ),
     [snapshot],
   );
+  const otherResolutions = useMemo(() => {
+    const inSnapshot = new Set(snapshot.conflicts.map((c) => c.conflictId));
+    return Object.values(context.resolutions)
+      .filter((r) => !inSnapshot.has(r.conflictId))
+      .sort((a, b) => Date.parse(b.resolvedAt) - Date.parse(a.resolvedAt));
+  }, [snapshot, context.resolutions]);
+
   const inspectedConflict = inspection ? snapshot.conflicts.find((c) => c.fieldKey === inspection.fieldKey) : undefined;
 
   useEffect(() => {
@@ -75,14 +101,31 @@ export default function App() {
   }, []);
   const closeInspector = useCallback(() => setInspection(null), []);
 
+  const openHierarchy = useCallback(
+    (domain: AuthorityDomain) => setHierarchy({ domain, baseline: context.rankings }),
+    [context.rankings],
+  );
+  const closeHierarchy = useCallback(() => setHierarchy(null), []);
+
+  const hierarchyImpact = useMemo(() => {
+    if (!hierarchy) return [];
+    const baseline = buildSnapshot(new Date(snapshot.asOf), { ...context, rankings: hierarchy.baseline });
+    return computeRankingImpact(baseline.goldenRecord, snapshot.goldenRecord);
+  }, [hierarchy, snapshot, context]);
+  const lastSynced = useMemo(() => lastSyncedBySource(snapshot.documents), [snapshot.documents]);
+
   const pickWinner = useCallback(
     (conflict: FieldConflict, claim: SourceClaim) => setOverride(conflict.fieldKey, claim.source, claim.documentId),
     [setOverride],
   );
+  const resolveActive = useCallback(
+    (conflict: FieldConflict) => resolveConflict(conflict, snapshot.asOf),
+    [resolveConflict, snapshot.asOf],
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (inspection || isTypingTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (inspection || hierarchy || isTypingTarget(event.target) || event.metaKey || event.ctrlKey || event.altKey) return;
       switch (event.key) {
         case 'ArrowLeft':
           event.preventDefault();
@@ -107,7 +150,9 @@ export default function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [inspection, handleStep, handleSelect, lastIndex]);
+  }, [inspection, hierarchy, handleStep, handleSelect, lastIndex]);
+
+  const focusedDomain = snapshot.goldenRecord.find((e) => e.key === focusedField)?.domain ?? 'headcount';
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
@@ -118,6 +163,7 @@ export default function App() {
         isLatest={activeIndex === lastIndex}
         customizationCount={resolution.customizationCount}
         onJumpToLatest={() => handleSelect(lastIndex)}
+        onManageHierarchy={() => openHierarchy(focusedDomain)}
         onResetDefaults={resolution.resetToDefaults}
       />
 
@@ -136,21 +182,22 @@ export default function App() {
           <GoldenRecordPanel
             className={PANEL_HEIGHT}
             entries={snapshot.goldenRecord}
-            rankings={context.rankings}
-            conflictSeverityByKey={conflictSeverityByKey}
+            conflictSeverityByKey={activeSeverityByKey}
             focusedField={focusedField}
             onFocusField={focusField}
-            onMoveRank={resolution.moveRank}
-            onClearOverride={clearOverride}
+            onOpenHierarchy={openHierarchy}
           />
           <ConflictInspector
             className={PANEL_HEIGHT}
             conflicts={snapshot.conflicts}
+            otherResolutions={otherResolutions}
             focusedField={focusedField}
             onFocusField={focusField}
             onInspect={openInspector}
             onPickWinner={pickWinner}
             onClearOverride={clearOverride}
+            onResolve={resolveActive}
+            onReopen={reopenConflict}
           />
         </div>
       </main>
@@ -165,7 +212,28 @@ export default function App() {
             )
           }
           onAdopt={(claim) => setOverride(inspectedConflict.fieldKey, claim.source, claim.documentId)}
+          onResolve={(claim) => {
+            resolveConflict(inspectedConflict, snapshot.asOf, claim);
+            closeInspector();
+          }}
+          onReopen={() => reopenConflict(inspectedConflict.conflictId)}
           onClose={closeInspector}
+        />
+      )}
+
+      {hierarchy && (
+        <HierarchyManagerModal
+          domain={hierarchy.domain}
+          rankings={context.rankings}
+          baseline={hierarchy.baseline}
+          impact={hierarchyImpact}
+          goldenRecord={snapshot.goldenRecord}
+          lastSynced={lastSynced}
+          onSelectDomain={(domain) => setHierarchy((current) => current && { ...current, domain })}
+          onMove={resolution.moveRank}
+          onUndo={() => replaceRankings(hierarchy.baseline)}
+          onResetDefaults={resolution.resetRankings}
+          onClose={closeHierarchy}
         />
       )}
     </div>

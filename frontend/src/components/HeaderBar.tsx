@@ -11,6 +11,7 @@ interface HeaderBarProps {
   isLatest: boolean;
   customizationCount: number;
   onJumpToLatest: () => void;
+  onManageHierarchy: () => void;
   onResetDefaults: () => void;
 }
 
@@ -21,10 +22,11 @@ export function HeaderBar({
   isLatest,
   customizationCount,
   onJumpToLatest,
+  onManageHierarchy,
   onResetDefaults,
 }: HeaderBarProps) {
   const { health } = snapshot;
-  const open = health.criticalCount + health.warningCount;
+  const active = health.criticalCount + health.warningCount;
 
   return (
     <header className="sticky top-0 z-30 border-b border-zinc-800 bg-zinc-950">
@@ -32,7 +34,7 @@ export function HeaderBar({
         <div className="flex min-w-0 items-baseline gap-3">
           <h1 className="text-sm font-semibold tracking-tight text-zinc-50">{profile.name}</h1>
           <span className="font-mono text-xs text-zinc-500">{profile.displayId}</span>
-          <span className="hidden truncate text-xs text-zinc-500 lg:inline">
+          <span className="hidden truncate text-xs text-zinc-500 2xl:inline">
             {profile.legalEntity} · {profile.workLocation}
           </span>
         </div>
@@ -56,31 +58,42 @@ export function HeaderBar({
             {snapshot.documents.length}
             <span className="text-zinc-600">/{totalDocuments}</span>
           </Metric>
-          <Metric label="Open conflicts">
-            <span className={cn(health.criticalCount > 0 ? 'text-red-400' : open > 0 ? 'text-amber-400' : 'text-zinc-100')}>
-              {open}
+          <Metric label="Active conflicts">
+            <span className={cn(health.criticalCount > 0 ? 'text-red-400' : active > 0 ? 'text-amber-400' : 'text-zinc-100')}>
+              {active}
             </span>
             {health.criticalCount > 0 && <span className="text-red-400/70"> ({health.criticalCount} crit)</span>}
-            {health.overriddenCount > 0 && <span className="text-sky-400/80"> +{health.overriddenCount} manual</span>}
+          </Metric>
+          <Metric label="Resolved">
+            <span className={health.resolvedCount > 0 ? 'text-emerald-400' : 'text-zinc-100'}>{health.resolvedCount}</span>
           </Metric>
           <Metric label="Health">
             <span
               className={healthTextClass(health.score)}
-              title={`−${health.conflictPenalty} open conflicts · −${health.stalenessPenalty} stale fields (${health.staleFields})`}
+              title={`−${health.conflictPenalty} active conflicts · −${health.stalenessPenalty} stale fields (${health.staleFields})`}
             >
               {health.score}
             </span>
           </Metric>
         </dl>
 
-        <button
-          type="button"
-          onClick={onResetDefaults}
-          disabled={customizationCount === 0}
-          className="border-l border-zinc-800 pl-5 text-[11px] text-zinc-400 transition hover:text-zinc-100 disabled:cursor-default disabled:text-zinc-700"
-        >
-          Reset to Defaults{customizationCount > 0 && <span className="font-mono text-zinc-500"> ({customizationCount})</span>}
-        </button>
+        <div className="flex items-center gap-4 border-l border-zinc-800 pl-5">
+          <button
+            type="button"
+            onClick={onManageHierarchy}
+            className="rounded-sm border border-zinc-700 px-2 py-1 text-[11px] text-zinc-200 transition hover:border-zinc-400 hover:text-white"
+          >
+            Manage Hierarchy
+          </button>
+          <button
+            type="button"
+            onClick={onResetDefaults}
+            disabled={customizationCount === 0}
+            className="text-[11px] text-zinc-400 transition hover:text-zinc-100 disabled:cursor-default disabled:text-zinc-700"
+          >
+            Reset to Defaults{customizationCount > 0 && <span className="font-mono text-zinc-500"> ({customizationCount})</span>}
+          </button>
+        </div>
       </div>
     </header>
   );

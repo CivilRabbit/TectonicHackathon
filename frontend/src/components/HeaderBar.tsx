@@ -59,10 +59,7 @@ export function HeaderBar({
             <span className="text-zinc-600">/{totalDocuments}</span>
           </Metric>
           <Metric label="Active conflicts">
-            <span className={cn(health.criticalCount > 0 ? 'text-red-400' : active > 0 ? 'text-amber-400' : 'text-zinc-100')}>
-              {active}
-            </span>
-            {health.criticalCount > 0 && <span className="text-red-400/70"> ({health.criticalCount} crit)</span>}
+            <span className={cn(active > 0 ? 'text-red-400' : 'text-zinc-100')}>{active}</span>
           </Metric>
           <Metric label="Resolved">
             <span className={health.resolvedCount > 0 ? 'text-emerald-400' : 'text-zinc-100'}>{health.resolvedCount}</span>

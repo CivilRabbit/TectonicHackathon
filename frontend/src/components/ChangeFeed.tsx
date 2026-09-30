@@ -29,7 +29,6 @@ function describe(change: FieldChange): string {
 export function ChangeFeed({ diff, focusedField, onFocusField }: ChangeFeedProps) {
   const changes = [...diff.modified, ...diff.added, ...diff.removed];
   const conflictEvents = [
-    ...diff.conflictsEscalated.map((c) => ({ ...c, kind: 'escalated' as const })),
     ...diff.conflictsOpened.map((c) => ({ ...c, kind: 'opened' as const })),
     ...diff.conflictsResolved.map((c) => ({ ...c, kind: 'resolved' as const })),
   ];
@@ -53,15 +52,11 @@ export function ChangeFeed({ diff, focusedField, onFocusField }: ChangeFeedProps
             onClick={() => onFocusField(event.fieldKey)}
             className={cn(
               'shrink-0 whitespace-nowrap rounded-sm border px-1.5 py-0.5 font-mono text-[10px] transition hover:bg-zinc-800',
-              event.kind === 'resolved'
-                ? 'border-emerald-500/40 text-emerald-300'
-                : event.severity === 'critical'
-                  ? 'border-red-500/50 text-red-300'
-                  : 'border-amber-500/40 text-amber-300',
+              event.kind === 'resolved' ? 'border-emerald-500/40 text-emerald-300' : 'border-red-500/50 text-red-300',
               focusedField === event.fieldKey && 'bg-zinc-800 ring-1 ring-zinc-500',
             )}
           >
-            {event.code}: {event.kind === 'resolved' ? 'conflict cleared' : event.kind === 'escalated' ? 'escalated to CRIT' : 'conflict'}
+            {event.code}: {event.kind === 'resolved' ? 'conflict cleared' : 'conflict'}
           </button>
         ))}
 

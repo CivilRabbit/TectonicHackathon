@@ -1,4 +1,4 @@
-import type { AttributeCategory, ConflictSeverity, DiffChangeType, SourceSystem } from '../types';
+import type { AttributeCategory, DiffChangeType, SourceSystem } from '../types';
 
 /** Source identity is carried by a small square swatch only; text stays monochrome. */
 export const SOURCE_SWATCH: Record<SourceSystem, string> = {
@@ -17,11 +17,6 @@ export const CATEGORY_LABELS: Record<AttributeCategory, string> = {
   payroll: 'Payroll & Headcount',
   compliance: 'Legal & Compliance',
   contacts: 'Contacts',
-};
-
-export const SEVERITY_STYLES: Record<ConflictSeverity, { tag: string; text: string; edge: string }> = {
-  critical: { tag: 'CRIT', text: 'text-red-400', edge: 'border-l-red-500' },
-  warning: { tag: 'WARN', text: 'text-amber-400', edge: 'border-l-amber-400' },
 };
 
 export const CHANGE_STYLES: Record<Exclude<DiffChangeType, 'unchanged'>, { prefix: string; pill: string }> = {

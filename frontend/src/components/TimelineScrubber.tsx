@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, Pause, Play, SkipForward } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import { SOURCE_SWATCH } from '../config/ui';
+import { ORIGIN_ICONS, ORIGIN_LABELS } from '../config/origins';
 import { cn } from '../lib/cn';
 import type { TimelinePoint } from '../types';
 import { formatDate, formatShortDate } from '../utils/format';
@@ -13,6 +13,8 @@ interface TimelineScrubberProps {
   onSelect: (index: number) => void;
   onStep: (delta: number) => void;
   onTogglePlay: () => void;
+  /** Document ids that participate in a conflict at the selected point in time. */
+  conflictDocumentIds: ReadonlySet<string>;
   /** Docked beneath the track, e.g. the change feed. */
   footer?: ReactNode;
 }
@@ -26,6 +28,7 @@ export function TimelineScrubber({
   onSelect,
   onStep,
   onTogglePlay,
+  conflictDocumentIds,
   footer,
 }: TimelineScrubberProps) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -43,13 +46,20 @@ export function TimelineScrubber({
             {formatDate(inspected.asOf)}
             {inspected.milestone && <span className="text-zinc-500"> · {inspected.milestone}</span>}
           </span>
-          {inspected.documents.map((doc) => (
+          {inspected.documents.map((doc) => {
+            const Icon = ORIGIN_ICONS[doc.origin.kind];
+            return (
             <span key={doc.id} className="flex min-w-0 items-center gap-1.5">
+              <Icon
+                className={cn('h-3.5 w-3.5 shrink-0', conflictDocumentIds.has(doc.id) ? 'text-red-400' : 'text-white')}
+                aria-hidden
+              />
               <SourceTag source={doc.source} />
               <span className="truncate font-sans text-[11px] text-zinc-400">{doc.title}</span>
               <span className="shrink-0 text-zinc-600">v{doc.version}</span>
             </span>
-          ))}
+            );
+          })}
         </div>
 
         <div className="flex shrink-0 items-center">
@@ -81,7 +91,9 @@ export function TimelineScrubber({
               const isActive = index === activeIndex;
               const isPast = index <= activeIndex;
               const isMilestone = point.milestone !== null;
-              const leadSource = point.documents[0]?.source;
+              const lead = point.documents[0];
+              const LeadIcon = lead ? ORIGIN_ICONS[lead.origin.kind] : null;
+              const inConflict = lead ? conflictDocumentIds.has(lead.id) : false;
 
               return (
                 <div key={point.id} className="absolute top-0 -translate-x-1/2" style={{ left: `${position(index)}%` }}>
@@ -106,20 +118,31 @@ export function TimelineScrubber({
                     onFocus={() => setHoverIndex(index)}
                     onBlur={() => setHoverIndex(null)}
                     aria-current={isActive ? 'step' : undefined}
-                    aria-label={`${formatDate(point.asOf)}${isMilestone ? ` (${point.milestone})` : ''}`}
+                    aria-label={
+                      lead
+                        ? `${formatDate(point.asOf)}${isMilestone ? ` (${point.milestone})` : ''}: ${ORIGIN_LABELS[lead.origin.kind]}, ${lead.title}`
+                        : `${formatDate(point.asOf)}${isMilestone ? ` (${point.milestone})` : ''}: checkpoint`
+                    }
                     className="group absolute left-1/2 grid h-6 w-6 -translate-x-1/2 -translate-y-1/2 place-items-center focus:outline-none focus-visible:ring-1 focus-visible:ring-zinc-400"
                     style={{ top: TRACK_Y }}
                   >
-                    <span
-                      className={cn(
-                        'block transition-transform duration-150 group-hover:scale-150',
-                        isActive
-                          ? 'h-2.5 w-2.5 bg-zinc-50 outline outline-1 outline-offset-2 outline-zinc-50'
-                          : isPast
-                            ? cn('h-2 w-2', leadSource ? SOURCE_SWATCH[leadSource] : 'bg-zinc-300')
-                            : 'h-2 w-2 border border-zinc-600 bg-zinc-900',
-                      )}
-                    />
+                    {LeadIcon ? (
+                      <LeadIcon
+                        aria-hidden
+                        className={cn(
+                          'transition-transform duration-150 group-hover:scale-125',
+                          isActive ? 'h-4 w-4' : 'h-3.5 w-3.5',
+                          inConflict ? 'text-red-400' : 'text-white',
+                        )}
+                      />
+                    ) : (
+                      <span
+                        className={cn(
+                          'block h-1.5 w-1.5 rounded-full',
+                          isActive ? 'bg-zinc-50 outline outline-1 outline-offset-2 outline-zinc-50' : 'bg-zinc-600',
+                        )}
+                      />
+                    )}
                   </button>
 
                   <span

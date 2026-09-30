@@ -11,7 +11,6 @@ import { useTimelinePlayback } from './hooks/useTimelinePlayback';
 import { CLIENT_DOCUMENTS, CLIENT_PROFILE } from './mock/clientHistory';
 import type {
   AuthorityDomain,
-  ConflictSeverity,
   DocumentInspectionState,
   FieldConflict,
   HierarchyManagerState,
@@ -74,13 +73,14 @@ export default function App() {
   );
   const diff = useMemo(() => computeSnapshotDiff(snapshot, previousSnapshot), [snapshot, previousSnapshot]);
 
-  const activeSeverityByKey = useMemo(
-    () =>
-      new Map<string, ConflictSeverity>(
-        snapshot.conflicts.filter((c) => c.status === 'active').map((c) => [c.fieldKey, c.severity]),
-      ),
-    [snapshot],
-  );
+  const conflictDocumentIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const conflict of snapshot.conflicts) {
+      if (conflict.status !== 'active') continue;
+      for (const claim of conflict.conflictingValues) ids.add(claim.documentId);
+    }
+    return ids;
+  }, [snapshot]);
   const otherResolutions = useMemo(() => {
     const inSnapshot = new Set(snapshot.conflicts.map((c) => c.conflictId));
     return Object.values(context.resolutions)
@@ -175,6 +175,7 @@ export default function App() {
           onSelect={handleSelect}
           onStep={handleStep}
           onTogglePlay={playback.toggle}
+          conflictDocumentIds={conflictDocumentIds}
           footer={<ChangeFeed diff={diff} focusedField={focusedField} onFocusField={focusField} />}
         />
 
@@ -182,7 +183,6 @@ export default function App() {
           <GoldenRecordPanel
             className={PANEL_HEIGHT}
             entries={snapshot.goldenRecord}
-            conflictSeverityByKey={activeSeverityByKey}
             focusedField={focusedField}
             onFocusField={focusField}
             onOpenHierarchy={openHierarchy}

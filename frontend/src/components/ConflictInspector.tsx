@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { SEVERITY_STYLES } from '../config/ui';
 import { cn } from '../lib/cn';
 import type { ConflictStatus, FieldConflict, ResolvedConflict, SourceClaim } from '../types';
 import { describeResolution, getFieldDefinition } from '../utils/engine';
@@ -157,7 +156,6 @@ interface ActiveConflictCardProps {
 function ActiveConflictCard({ conflict, focused, onFocus, onInspect, onPick, onClearOverride, onResolve }: ActiveConflictCardProps) {
   const [leaving, setLeaving] = useState(false);
   const exitTimer = useRef<number | null>(null);
-  const severity = SEVERITY_STYLES[conflict.severity];
   const isOverride = conflict.method === 'override';
   const numeric = conflict.format === 'number' || conflict.format === 'currency';
   const winner = conflict.conflictingValues[0];
@@ -191,15 +189,15 @@ function ActiveConflictCard({ conflict, focused, onFocus, onInspect, onPick, onC
           }}
           className={cn(
             'mb-2 scroll-m-2 cursor-pointer rounded-sm border border-l-2 border-zinc-800 bg-zinc-950/60 transition-colors hover:border-zinc-700',
-            severity.edge,
+            'border-l-red-500',
             focused && 'border-zinc-600 bg-zinc-950 hover:border-zinc-600',
           )}
         >
           <header className="flex items-center gap-2 px-3 pt-2">
-            <span className={cn('font-mono text-[10px] font-semibold', severity.text)}>{severity.tag}</span>
+            <span className="font-mono text-[10px] font-semibold text-red-400">Conflict</span>
             <h3 className="truncate text-[13px] font-medium text-zinc-100">{conflict.label}</h3>
             {conflict.driftPct !== null && (
-              <span className={cn('font-mono text-[10px] tabular-nums', severity.text)}>Δ{conflict.driftPct}%</span>
+              <span className="font-mono text-[10px] tabular-nums text-red-400">Δ{conflict.driftPct}%</span>
             )}
             {isOverride && <OverrideBadge />}
             <button

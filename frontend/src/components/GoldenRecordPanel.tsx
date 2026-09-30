@@ -1,8 +1,8 @@
 import { Search, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { CATEGORY_LABELS, CATEGORY_ORDER, SEVERITY_STYLES } from '../config/ui';
+import { CATEGORY_LABELS, CATEGORY_ORDER } from '../config/ui';
 import { cn } from '../lib/cn';
-import type { AuthorityDomain, ConflictSeverity, GoldenRecordEntry } from '../types';
+import type { AuthorityDomain, GoldenRecordEntry } from '../types';
 import { STALE_AFTER_DAYS } from '../utils/engine';
 import { formatAge, formatValue } from '../utils/format';
 import { OverrideBadge, ResolvedBadge } from './ui/OverrideBadge';
@@ -11,8 +11,6 @@ import { SourceTag } from './ui/SourceTag';
 
 interface GoldenRecordPanelProps {
   entries: GoldenRecordEntry[];
-  /** Active (unresolved) conflicts only. */
-  conflictSeverityByKey: Map<string, ConflictSeverity>;
   focusedField: string | null;
   onFocusField: (key: string) => void;
   onOpenHierarchy: (domain: AuthorityDomain) => void;
@@ -21,7 +19,6 @@ interface GoldenRecordPanelProps {
 
 export function GoldenRecordPanel({
   entries,
-  conflictSeverityByKey,
   focusedField,
   onFocusField,
   onOpenHierarchy,
@@ -89,7 +86,7 @@ export function GoldenRecordPanel({
                 <GoldenRow
                   key={entry.key}
                   entry={entry}
-                  severity={conflictSeverityByKey.get(entry.key)}
+                  inConflict={entry.hasConflict && !entry.isResolved}
                   focused={focusedField === entry.key}
                   onFocus={() => onFocusField(entry.key)}
                   onOpenHierarchy={() => onOpenHierarchy(entry.domain)}
@@ -105,13 +102,13 @@ export function GoldenRecordPanel({
 
 interface GoldenRowProps {
   entry: GoldenRecordEntry;
-  severity?: ConflictSeverity;
+  inConflict: boolean;
   focused: boolean;
   onFocus: () => void;
   onOpenHierarchy: () => void;
 }
 
-function GoldenRow({ entry, severity, focused, onFocus, onOpenHierarchy }: GoldenRowProps) {
+function GoldenRow({ entry, inConflict, focused, onFocus, onOpenHierarchy }: GoldenRowProps) {
   const formatted = formatValue(entry.value, entry.format);
   const stale = entry.freshnessDays > STALE_AFTER_DAYS;
 
@@ -120,7 +117,7 @@ function GoldenRow({ entry, severity, focused, onFocus, onOpenHierarchy }: Golde
       id={`golden-row-${entry.key}`}
       className={cn(
         'grid scroll-m-8 grid-cols-[minmax(0,11rem)_minmax(0,1fr)_auto_2.75rem] items-center gap-3 border-b border-l-2 border-b-zinc-800/70 border-l-transparent px-3 py-[7px] transition-colors hover:bg-zinc-800/50',
-        severity && SEVERITY_STYLES[severity].edge,
+        inConflict && 'border-l-red-500',
         focused && 'bg-zinc-800/70 hover:bg-zinc-800/70',
       )}
     >

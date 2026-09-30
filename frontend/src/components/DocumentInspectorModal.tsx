@@ -1,7 +1,6 @@
 import { type ReactNode } from 'react';
 import { ORIGIN_ICONS, ORIGIN_LABELS } from '../config/origins';
 import { SOURCE_LABELS } from '../config/sources';
-import { SEVERITY_STYLES } from '../config/ui';
 import { cn } from '../lib/cn';
 import type { ClientDocument, DocumentInspectionState, FieldConflict, IngestedSource, SourceClaim } from '../types';
 import { getDocumentById, valuesEqual } from '../utils/engine';
@@ -32,7 +31,6 @@ export function DocumentInspectorModal({
   onClose,
 }: DocumentInspectorModalProps) {
   const claimsByDocument = new Map(conflict.conflictingValues.map((c) => [c.documentId, c]));
-  const severity = SEVERITY_STYLES[conflict.severity];
   const isResolved = conflict.status === 'resolved';
   const panes: Array<[Side, SourceClaim | undefined, string]> = [
     ['left', claimsByDocument.get(inspection.leftDocumentId), inspection.rightDocumentId],
@@ -47,7 +45,7 @@ export function DocumentInspectorModal({
       headerContent={
         <>
           <span className="text-zinc-700">/</span>
-          <span className={cn('font-mono text-[10px] font-semibold', severity.text)}>{severity.tag}</span>
+          <span className="font-mono text-[10px] font-semibold text-red-400">Conflict</span>
           <span className="truncate text-[13px] text-zinc-100">{conflict.label}</span>
           <span className="font-mono text-[10px] text-zinc-500">{conflict.code}</span>
         </>

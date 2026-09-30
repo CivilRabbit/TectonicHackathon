@@ -2,6 +2,8 @@ import type { AuthorityDomain, SourceSystem } from '../types';
 
 export const SOURCE_ORDER: SourceSystem[] = ['PAYROLL', 'HRIS', 'CRM', 'CONTRACTS', 'BENEFITS', 'SUPPORT'];
 
+export const AUTHORITY_DOMAINS: AuthorityDomain[] = ['company', 'headcount', 'compensation', 'contract', 'contact', 'benefits'];
+
 export const SOURCE_LABELS: Record<SourceSystem, string> = {
   PAYROLL: 'Payroll',
   HRIS: 'HRIS',

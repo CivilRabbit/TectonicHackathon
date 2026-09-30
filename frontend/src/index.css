@@ -3,20 +3,28 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    color-scheme: dark;
+  }
+
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    @apply bg-slate-100 font-sans;
+    @apply bg-zinc-950 font-sans text-zinc-100;
+  }
+
+  ::selection {
+    @apply bg-zinc-100 text-zinc-900;
   }
 }
 
 @layer utilities {
   .scroll-thin {
     scrollbar-width: thin;
-    scrollbar-color: theme('colors.slate.300') transparent;
+    scrollbar-color: theme('colors.zinc.700') transparent;
   }
 
   .scroll-thin::-webkit-scrollbar {
@@ -25,6 +33,14 @@
   }
 
   .scroll-thin::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-slate-300;
+    @apply rounded-sm bg-zinc-700;
+  }
+
+  .scroll-none {
+    scrollbar-width: none;
+  }
+
+  .scroll-none::-webkit-scrollbar {
+    display: none;
   }
 }

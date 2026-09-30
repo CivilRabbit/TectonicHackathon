@@ -50,31 +50,31 @@ export const SYSTEM_WEIGHTS: SystemWeight[] = (Object.keys(AUTHORITY_MATRIX) as 
 
 /** Display order of the golden record follows this list. */
 export const FIELD_DEFINITIONS: FieldDefinition[] = [
-  { key: 'legalName', label: 'Legal entity name', category: 'company', domain: 'company', format: 'text', conflictSeverity: 'critical' },
-  { key: 'tradingName', label: 'Trading name', category: 'company', domain: 'company', format: 'text' },
-  { key: 'industry', label: 'Industry', category: 'company', domain: 'company', format: 'text' },
-  { key: 'hqAddress', label: 'Headquarters address', category: 'company', domain: 'company', format: 'text', conflictSeverity: 'warning' },
-  { key: 'accountTier', label: 'Account tier', category: 'company', domain: 'company', format: 'text' },
+  { key: 'legalName', code: 'LEGAL_NAME', label: 'Legal entity name', category: 'company', domain: 'company', format: 'text', conflictSeverity: 'critical' },
+  { key: 'tradingName', code: 'TRADING_NAME', label: 'Trading name', category: 'company', domain: 'company', format: 'text' },
+  { key: 'industry', code: 'INDUSTRY', label: 'Industry', category: 'company', domain: 'company', format: 'text' },
+  { key: 'hqAddress', code: 'HQ_ADDR', label: 'Headquarters address', category: 'company', domain: 'company', format: 'text', conflictSeverity: 'warning' },
+  { key: 'accountTier', code: 'ACCT_TIER', label: 'Account tier', category: 'company', domain: 'company', format: 'text' },
 
-  { key: 'headcount', label: 'Headcount (active employees)', category: 'payroll', domain: 'headcount', format: 'number', criticalDriftPct: 10 },
-  { key: 'payrollFrequency', label: 'Payroll frequency', category: 'payroll', domain: 'compensation', format: 'text', conflictSeverity: 'critical' },
-  { key: 'payCycleCutoff', label: 'Pay cycle cut-off', category: 'payroll', domain: 'compensation', format: 'text', conflictSeverity: 'critical' },
-  { key: 'annualPayrollBudget', label: 'Annual gross payroll', category: 'payroll', domain: 'compensation', format: 'currency', criticalDriftPct: 5 },
-  { key: 'avgMonthlyGross', label: 'Avg. monthly gross salary', category: 'payroll', domain: 'compensation', format: 'currency', criticalDriftPct: 5 },
-  { key: 'pensionProvider', label: 'Pension provider', category: 'payroll', domain: 'benefits', format: 'text' },
-  { key: 'mealVoucherValue', label: 'Meal voucher (per day)', category: 'payroll', domain: 'benefits', format: 'currency' },
-  { key: 'wellnessStipend', label: 'Wellness stipend (monthly)', category: 'payroll', domain: 'benefits', format: 'currency' },
-  { key: 'bikeLeaseEnabled', label: 'Bike lease programme', category: 'payroll', domain: 'benefits', format: 'boolean' },
+  { key: 'headcount', code: 'HEADCOUNT', label: 'Headcount (active employees)', category: 'payroll', domain: 'headcount', format: 'number', criticalDriftPct: 10 },
+  { key: 'payrollFrequency', code: 'PAY_FREQ', label: 'Payroll frequency', category: 'payroll', domain: 'compensation', format: 'text', conflictSeverity: 'critical' },
+  { key: 'payCycleCutoff', code: 'PAY_CUTOFF', label: 'Pay cycle cut-off', category: 'payroll', domain: 'compensation', format: 'text', conflictSeverity: 'critical' },
+  { key: 'annualPayrollBudget', code: 'ANNUAL_GROSS', label: 'Annual gross payroll', category: 'payroll', domain: 'compensation', format: 'currency', criticalDriftPct: 5 },
+  { key: 'avgMonthlyGross', code: 'AVG_GROSS', label: 'Avg. monthly gross salary', category: 'payroll', domain: 'compensation', format: 'currency', criticalDriftPct: 5 },
+  { key: 'pensionProvider', code: 'PENSION', label: 'Pension provider', category: 'payroll', domain: 'benefits', format: 'text' },
+  { key: 'mealVoucherValue', code: 'MEAL_VOUCHER', label: 'Meal voucher (per day)', category: 'payroll', domain: 'benefits', format: 'currency' },
+  { key: 'wellnessStipend', code: 'WELLNESS', label: 'Wellness stipend (monthly)', category: 'payroll', domain: 'benefits', format: 'currency' },
+  { key: 'bikeLeaseEnabled', code: 'BIKE_LEASE', label: 'Bike lease programme', category: 'payroll', domain: 'benefits', format: 'boolean' },
 
-  { key: 'servicePlan', label: 'Service plan', category: 'compliance', domain: 'contract', format: 'text', conflictSeverity: 'critical' },
-  { key: 'contractRenewalDate', label: 'Contract renewal date', category: 'compliance', domain: 'contract', format: 'date', conflictSeverity: 'critical' },
-  { key: 'slaTier', label: 'SLA tier', category: 'compliance', domain: 'contract', format: 'text' },
-  { key: 'dpaSigned', label: 'Data processing agreement', category: 'compliance', domain: 'contract', format: 'boolean', conflictSeverity: 'critical' },
+  { key: 'servicePlan', code: 'SERVICE_PLAN', label: 'Service plan', category: 'compliance', domain: 'contract', format: 'text', conflictSeverity: 'critical' },
+  { key: 'contractRenewalDate', code: 'RENEWAL', label: 'Contract renewal date', category: 'compliance', domain: 'contract', format: 'date', conflictSeverity: 'critical' },
+  { key: 'slaTier', code: 'SLA', label: 'SLA tier', category: 'compliance', domain: 'contract', format: 'text' },
+  { key: 'dpaSigned', code: 'DPA', label: 'Data processing agreement', category: 'compliance', domain: 'contract', format: 'boolean', conflictSeverity: 'critical' },
 
-  { key: 'primaryContactName', label: 'Primary contact', category: 'contacts', domain: 'contact', format: 'text' },
-  { key: 'primaryContactEmail', label: 'Primary contact email', category: 'contacts', domain: 'contact', format: 'email', conflictSeverity: 'warning' },
-  { key: 'billingEmail', label: 'Billing email', category: 'contacts', domain: 'contact', format: 'email', conflictSeverity: 'warning' },
-  { key: 'accountManager', label: 'Account manager', category: 'contacts', domain: 'contact', format: 'text' },
+  { key: 'primaryContactName', code: 'CONTACT', label: 'Primary contact', category: 'contacts', domain: 'contact', format: 'text' },
+  { key: 'primaryContactEmail', code: 'CONTACT_EMAIL', label: 'Primary contact email', category: 'contacts', domain: 'contact', format: 'email', conflictSeverity: 'warning' },
+  { key: 'billingEmail', code: 'BILLING_EMAIL', label: 'Billing email', category: 'contacts', domain: 'contact', format: 'email', conflictSeverity: 'warning' },
+  { key: 'accountManager', code: 'ACCT_MGR', label: 'Account manager', category: 'contacts', domain: 'contact', format: 'text' },
 ];
 
 /** Source-specific payload keys mapped onto canonical field keys. */

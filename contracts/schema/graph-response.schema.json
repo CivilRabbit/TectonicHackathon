@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://northwind.local/schemas/graph-response.json",
+  "title": "GraphResponse",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["country", "nodes", "edges", "conflicts", "trust"],
+  "properties": {
+    "country": { "enum": ["BE", "NL"] },
+    "nodes": { "type": "array" },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "from", "to", "type"],
+        "properties": {
+          "id": { "type": "string" },
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "type": { "enum": ["supersedes", "contradicts", "references"] }
+        }
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "sourceIds", "topic", "reason", "severity"],
+        "properties": {
+          "id": { "type": "string" },
+          "sourceIds": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": { "type": "string" }
+          },
+          "topic": { "type": "string" },
+          "reason": {
+            "enum": ["value_mismatch", "scope_mismatch", "unofficial_vs_official"]
+          },
+          "severity": { "enum": ["high", "medium", "low"] }
+        }
+      }
+    },
+    "trust": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["score", "factors"],
+        "properties": {
+          "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "factors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "label", "delta", "detail"],
+              "properties": {
+                "id": { "type": "string" },
+                "label": { "type": "string" },
+                "delta": { "type": "number" },
+                "detail": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

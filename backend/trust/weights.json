@@ -1,0 +1,15 @@
+{
+  "authority": {
+    "doc": 40,
+    "email": 22,
+    "teams": 12
+  },
+  "recency_max": 18,
+  "recency_half_life_days": 180,
+  "has_owner": 10,
+  "scope_match": 16,
+  "scope_mismatch_penalty": -18,
+  "corroboration_per_source": 6,
+  "corroboration_max": 12,
+  "open_conflict_penalty": -22
+}

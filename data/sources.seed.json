@@ -1,0 +1,62 @@
+[
+  {
+    "id": "src-be-2023",
+    "type": "doc",
+    "title": "Northwind People — Hybrid work policy (BE, 2023)",
+    "date": "2023-01-15",
+    "owner": "Policy Office",
+    "country": "BE",
+    "body": "Invented rule: Belgium-based staff may work remotely up to 2 days per week.",
+    "claims": [{ "topic": "remote_work_days_per_week", "value": "2" }],
+    "supersedesIds": [],
+    "referencesIds": []
+  },
+  {
+    "id": "src-be-2025",
+    "type": "doc",
+    "title": "Northwind People — Hybrid work policy (BE, 2025)",
+    "date": "2025-03-01",
+    "owner": "Policy Office",
+    "country": "BE",
+    "body": "Invented rule: Belgium-based staff may work remotely up to 3 days per week. This document replaces the 2023 version.",
+    "claims": [{ "topic": "remote_work_days_per_week", "value": "3" }],
+    "supersedesIds": ["src-be-2023"],
+    "referencesIds": []
+  },
+  {
+    "id": "src-teams-unlimited",
+    "type": "teams",
+    "title": "Teams — #belgium-office: “unlimited remote is fine now”",
+    "date": "2025-06-10",
+    "owner": "Alex",
+    "country": "BE",
+    "body": "Invented chat: “Ignore the PDF, we all do unlimited WFH now.”",
+    "claims": [{ "topic": "remote_work_days_per_week", "value": "unlimited" }],
+    "supersedesIds": [],
+    "referencesIds": []
+  },
+  {
+    "id": "src-nl-2024",
+    "type": "doc",
+    "title": "Northwind People — Hybrid work policy (NL, 2024)",
+    "date": "2024-11-01",
+    "owner": "Policy Office NL",
+    "country": "NL",
+    "body": "Invented rule: Netherlands-based staff may work remotely up to 4 days per week.",
+    "claims": [{ "topic": "remote_work_days_per_week", "value": "4" }],
+    "supersedesIds": [],
+    "referencesIds": []
+  },
+  {
+    "id": "src-wiki-orphan",
+    "type": "doc",
+    "title": "Internal wiki: hybrid days (unsigned page)",
+    "date": "2024-05-20",
+    "owner": null,
+    "country": "ALL",
+    "body": "Invented wiki stub with no owner. Still says 2 remote days per week.",
+    "claims": [{ "topic": "remote_work_days_per_week", "value": "2" }],
+    "supersedesIds": [],
+    "referencesIds": []
+  }
+]

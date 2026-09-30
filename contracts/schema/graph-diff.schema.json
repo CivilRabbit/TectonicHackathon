@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://northwind.local/schemas/graph-diff.json",
+  "title": "GraphDiff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "addedNodes",
+    "addedEdges",
+    "newConflicts",
+    "resolvedConflicts",
+    "changedTrust"
+  ],
+  "properties": {
+    "addedNodes": { "type": "array" },
+    "addedEdges": { "type": "array" },
+    "newConflicts": { "type": "array" },
+    "resolvedConflicts": { "type": "array" },
+    "changedTrust": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["before", "after"],
+        "properties": {
+          "before": { "type": "integer" },
+          "after": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

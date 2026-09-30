@@ -1,0 +1,47 @@
+openapi: 3.0.3
+info:
+  title: Northwind Knowledge Graph
+  version: 0.1.0
+  description: Hackathon contract. Country is a work-location filter, not an account.
+paths:
+  /graph:
+    get:
+      parameters:
+        - in: query
+          name: country
+          required: true
+          schema: { type: string, enum: [BE, NL] }
+      responses:
+        "200": { description: GraphResponse }
+  /sources:
+    post:
+      parameters:
+        - in: query
+          name: country
+          required: true
+          schema: { type: string, enum: [BE, NL] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "./schema/source.schema.json" }
+      responses:
+        "200": { description: AddSourceResponse }
+  /sources/{id}:
+    get:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, pattern: "^[a-zA-Z0-9_-]+$" }
+        - in: query
+          name: country
+          required: true
+          schema: { type: string, enum: [BE, NL] }
+      responses:
+        "200": { description: SourceDetail }
+        "404": { description: unknown id }
+  /reset:
+    post:
+      responses:
+        "200": { description: GraphResponse after reloading seed }

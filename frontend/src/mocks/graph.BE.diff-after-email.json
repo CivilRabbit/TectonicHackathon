@@ -1,0 +1,88 @@
+{
+  "addedNodes": [
+    {
+      "id": "src-added-1",
+      "type": "email",
+      "title": "Email from Sam (HR) \u2014 \u201cstay on 2 days until Q4\u201d",
+      "date": "2025-09-28",
+      "owner": "Sam (HR)",
+      "country": "BE",
+      "body": "Invented email: \u201cPlease keep Belgium at 2 remote days until Q4; the 2025 PDF is being reviewed.\u201d",
+      "claims": [
+        {
+          "topic": "remote_work_days_per_week",
+          "value": "2"
+        }
+      ],
+      "supersedesIds": [],
+      "referencesIds": [
+        "src-be-2025"
+      ]
+    }
+  ],
+  "addedEdges": [
+    {
+      "id": "e-ref-src-added-1-src-be-2025",
+      "from": "src-added-1",
+      "to": "src-be-2025",
+      "type": "references"
+    },
+    {
+      "id": "e-con-src-added-1-src-be-2025",
+      "from": "src-added-1",
+      "to": "src-be-2025",
+      "type": "contradicts"
+    },
+    {
+      "id": "e-con-src-added-1-src-teams-unlimited",
+      "from": "src-added-1",
+      "to": "src-teams-unlimited",
+      "type": "contradicts"
+    }
+  ],
+  "newConflicts": [
+    {
+      "id": "c-unofficial_vs_official-src-added-1-src-be-2025",
+      "sourceIds": [
+        "src-added-1",
+        "src-be-2025"
+      ],
+      "topic": "remote_work_days_per_week",
+      "reason": "unofficial_vs_official",
+      "severity": "high"
+    },
+    {
+      "id": "c-value_mismatch-src-added-1-src-teams-unlimited",
+      "sourceIds": [
+        "src-added-1",
+        "src-teams-unlimited"
+      ],
+      "topic": "remote_work_days_per_week",
+      "reason": "value_mismatch",
+      "severity": "medium"
+    }
+  ],
+  "resolvedConflicts": [],
+  "changedTrust": {
+    "src-be-2023": {
+      "before": 73,
+      "after": 78
+    },
+    "src-be-2025": {
+      "before": 56,
+      "after": 52
+    },
+    "src-teams-unlimited": {
+      "before": 34,
+      "after": 28
+    },
+    "src-nl-2024": {
+      "before": 18,
+      "after": 15
+    },
+    "src-wiki-orphan": {
+      "before": 44,
+      "after": 49
+    }
+  }
+}
